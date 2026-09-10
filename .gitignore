@@ -2,6 +2,7 @@
 .env
 *.env
 config/.env
+.db_env
 
 # Logs et résultats
 logs/
