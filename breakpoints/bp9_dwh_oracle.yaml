@@ -1,0 +1,89 @@
+# Configuration du breakpoint BP9 — Datawarehouse Oracle
+# Ce fichier définit comment surveiller le DWH Oracle (accès direct par requête SQL)
+
+id: bp9_dwh_oracle
+name: "Datawarehouse Oracle"
+access: direct  # Accès direct (pas d'inférence)
+
+# Configuration du connecteur
+connector:
+  type: oracle
+  params:
+    dsn: ${DWH_DSN}              # Ex: "hostname:1521/service_name" - à définir en variable d'environnement
+    user: ${DWH_READONLY_USER}   # Compte en lecture seule (GRANT SELECT uniquement)
+    password: ${DWH_READONLY_PASSWORD}
+
+# Configuration de la source de données
+data_source:
+  table: ${DWH_TABLE_NAME}      # Ex: "DWH.CTI_EVENTS" - à définir en variable d'environnement
+  date_column: EVENT_DATE        # Colonne de date pour filtrer les données du jour
+
+# Planning d'exécution (J+1 vérifie J-1 par défaut)
+schedule:
+  check_offset_days: 1           # J+1 vérifie J-1
+  check_run_time: "08:00"        # Heure de lancement du run complet (PLACEHOLDER)
+  heartbeat_enabled: false       # Heartbeat désactivé dans la V1
+  heartbeat_time: "23:00"        # (utilisé seulement si heartbeat_enabled = true)
+
+# Liste des checks à exécuter (ordre d'exécution)
+checks:
+  # 1. Vérifier la conformité du schéma (échec structurel potentiel)
+  - type: schema_conformity_check
+    params:
+      mandatory_columns:
+        - EVENT_TIME
+        - CONNID
+        - UD_SITE_CIBLE
+        - EVENT_DATE
+        - FILE_DATE
+    force_zero_on_failure: true  # Force le score à 0 si ce check échoue
+
+  # 2. Vérifier la volumétrie minimale (échec structurel si 0 ligne)
+  - type: min_row_count_check
+    params:
+      min_lines: 10000  # PLACEHOLDER - à valider avec le métier
+    force_zero_on_failure: true  # Force le score à 0 si 0 ligne détectée
+
+  # 3. Comparer à la baseline historique
+  - type: baseline_comparison_check
+    params:
+      tolerance_percent: 20  # ±20% d'écart acceptable - PLACEHOLDER
+      baseline_days: 14      # 14 jours ouvrés de référence - PLACEHOLDER
+
+  # 4. Vérifier les doublons sur clé primaire
+  - type: duplicate_key_check
+    params:
+      primary_keys:
+        - CONNID  # PLACEHOLDER - à confirmer comme clé unique ou composite
+      tolerance: 0  # 0 doublon toléré par défaut - PLACEHOLDER
+
+  # 5. Vérifier le taux de nullité sur champs critiques
+  - type: null_rate_check
+    params:
+      critical_fields:  # PLACEHOLDER - liste à définir avec le métier
+        - TECHNICAL_RESULT
+        - RESULT_REASON
+        - DUREE_CONVERSATION
+      max_null_rate_percent: 2.0  # 2% max - PLACEHOLDER
+
+  # 6. Vérifier la distribution horaire
+  - type: hourly_distribution_check
+    params:
+      time_column: EVENT_TIME
+      tolerance_percent: 5.0  # ±5 points de % par tranche - PLACEHOLDER
+      baseline_days: 14       # PLACEHOLDER
+      excluded_hours: []      # Tranches à exclure (ex: [0,1,2,3] pour nuit) - PLACEHOLDER
+
+# Seuils de score pour déterminer le statut macro
+# (codé en dur dans BreakpointResult.determine_status, mais documenté ici)
+score_thresholds:
+  normal: 10           # 10/10 = vert
+  degrade_min: 6       # 6-9/10 = rouge clair
+  critique_max: 5      # ≤5/10 = rouge foncé
+
+# Métadonnées (pour documentation/dashboard)
+metadata:
+  description: "Surveillance directe du Datawarehouse Oracle (lignes CTI)"
+  priority: high
+  contact: "Équipe DWH"  # PLACEHOLDER
+  documentation_url: "Documentation/Plan_de_Monitoring_DWH.md"

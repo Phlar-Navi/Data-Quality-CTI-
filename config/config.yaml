@@ -1,0 +1,106 @@
+# Configuration globale du système de monitoring CTI
+# Paramètres partagés par tous les breakpoints
+
+# ====== Logging ======
+logging:
+  # Répertoire de stockage des logs
+  log_dir: ./logs
+  
+  # Niveau de log (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  log_level: INFO
+  
+  # Rotation des logs (nombre de jours à conserver)
+  retention_days: 30
+  
+  # Format des logs
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+# ====== Exécution ======
+execution:
+  # Mode d'exécution par défaut
+  # - "single": exécute un seul breakpoint
+  # - "all": exécute tous les breakpoints configurés
+  mode: all
+  
+  # Breakpoint(s) à exécuter en mode "single" (liste d'IDs)
+  target_breakpoints:
+    - bp9_dwh_oracle
+  
+  # Parallélisation (nombre de breakpoints exécutés en parallèle)
+  # 1 = séquentiel, >1 = parallèle (à utiliser avec prudence si connexions limitées)
+  max_workers: 1
+  
+  # Timeout par breakpoint (en secondes)
+  timeout_seconds: 300
+
+# ====== Notifications ======
+notifications:
+  # Activer/désactiver les notifications
+  enabled: false
+  
+  # Types de notifications à envoyer
+  # Valeurs possibles : email, push, webhook
+  channels:
+    - email
+  
+  # Configuration email (si activé)
+  email:
+    smtp_server: smtp.gmail.com
+    smtp_port: 465
+    sender: smrcorp007@gmail.com # ${EMAIL_SENDER}
+    sender_password: rrxjhbckbdtzfqjv # ${EMAIL_SENDER_PASSWORD}
+    recipients:
+      - monitoring@example.com
+    
+    # Envoyer seulement en cas d'échec ou toujours
+    send_on_failure_only: true
+  
+  # Configuration push/ntfy (si activé)
+  push:
+    url: https://ntfy.sh/
+    topic: OCM_CTI_Monitoring
+    priority_normal: default
+    priority_critical: high
+
+# ====== Dashboard / API ======
+dashboard:
+  # Activer l'export JSON pour le dashboard
+  export_enabled: true
+  
+  # Répertoire d'export des résultats JSON (pour le frontend)
+  export_dir: ./dashboard_data
+  
+  # Historique des runs conservé pour le dashboard (nombre de runs)
+  history_size: 30
+
+# ====== Seuils par défaut ======
+# Ces valeurs sont utilisées si un breakpoint ne les définit pas explicitement
+default_thresholds:
+  # Volumétrie
+  min_lines: 1000
+  baseline_tolerance_percent: 20.0
+  baseline_days: 14
+  
+  # Qualité
+  duplicate_tolerance: 0
+  max_null_rate_percent: 2.0
+  
+  # Distribution horaire
+  hourly_tolerance_percent: 5.0
+  
+  # Score
+  score_normal: 10
+  score_degrade_min: 6
+  score_critique_max: 5
+
+# ====== Base de données de métriques (optionnel, pour historisation avancée) ======
+metrics_db:
+  # Activer la sauvegarde des métriques dans une base dédiée
+  enabled: false
+  
+  # Type de base (sqlite, postgresql)
+  type: sqlite
+  
+  # Chemin ou DSN
+  connection: ./logs/metrics.db

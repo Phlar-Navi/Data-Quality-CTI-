@@ -1,0 +1,64 @@
+================================================================================
+MONITORING CTI - RAPPORT D'EXÉCUTION
+================================================================================
+Date d'exécution : 2026-09-10 15:18:15
+Nombre de breakpoints : 1
+
+RÉSUMÉ GLOBAL
+--------------------------------------------------------------------------------
+  en_cours        : 1
+
+  Score moyen     : 0.0/10
+
+================================================================================
+DÉTAIL PAR BREAKPOINT
+================================================================================
+
+--------------------------------------------------------------------------------
+BREAKPOINT : Test Local - Donnees CTI Mail (bp_test_local)
+--------------------------------------------------------------------------------
+Statut          : en_cours
+Score global    : 0/10
+Type d'accès    : direct
+Date cible      : 2026-09-09
+Exécuté à       : 2026-09-10 15:18:15
+État            : completed
+
+CHECKS (6) :
+
+  [1] min_row_count_check
+      Statut     : failure
+      Confiance  : direct
+      Message    : Aucune ligne trouvée (attendu ≥ 10000)
+      Métriques  :
+        row_count: 0
+        min_lines: 10000
+
+  [2] baseline_comparison_check
+      Statut     : warning
+      Confiance  : direct
+      Message    : Baseline historique à 0, impossible de comparer
+      Métriques  :
+        current_count: 0
+        baseline_avg: 0.0
+
+  [3] schema_conformity_check
+      Statut     : warning
+      Confiance  : direct
+      Message    : Aucune colonne obligatoire définie dans la configuration
+
+  [4] duplicate_key_check
+      Statut     : warning
+      Confiance  : direct
+      Message    : Aucune clé primaire définie dans la configuration
+
+  [5] null_rate_check
+      Statut     : warning
+      Confiance  : direct
+      Message    : Aucun champ critique défini dans la configuration
+
+  [6] hourly_distribution_check
+      Statut     : warning
+      Confiance  : direct
+      Message    : Aucune ligne à analyser (dataset vide)
+

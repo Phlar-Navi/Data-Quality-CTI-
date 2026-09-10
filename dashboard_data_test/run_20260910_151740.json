@@ -1,0 +1,72 @@
+{
+  "run_timestamp": "20260910_151740",
+  "run_date": "2026-09-10T15:17:40.539690",
+  "breakpoints": [
+    {
+      "breakpoint_id": "bp_test_local",
+      "breakpoint_name": "Test Local - Donnees CTI Mail",
+      "access_type": "direct",
+      "target_date": "2026-09-09",
+      "run_timestamp": "2026-09-10T15:17:40.327373",
+      "run_state": "completed",
+      "status": "en_cours",
+      "score": 0,
+      "checks": [
+        {
+          "name": "min_row_count_check",
+          "status": "failure",
+          "confidence": "direct",
+          "message": "Aucune ligne trouvée (attendu ≥ 10000)",
+          "metrics": {
+            "row_count": 0,
+            "min_lines": 10000
+          },
+          "timestamp": "2026-09-10T15:17:40.403828"
+        },
+        {
+          "name": "baseline_comparison_check",
+          "status": "warning",
+          "confidence": "direct",
+          "message": "Baseline historique à 0, impossible de comparer",
+          "metrics": {
+            "current_count": 0,
+            "baseline_avg": 0.0
+          },
+          "timestamp": "2026-09-10T15:17:40.472488"
+        },
+        {
+          "name": "schema_conformity_check",
+          "status": "warning",
+          "confidence": "direct",
+          "message": "Aucune colonne obligatoire définie dans la configuration",
+          "metrics": {},
+          "timestamp": "2026-09-10T15:17:40.472488"
+        },
+        {
+          "name": "duplicate_key_check",
+          "status": "warning",
+          "confidence": "direct",
+          "message": "Aucune clé primaire définie dans la configuration",
+          "metrics": {},
+          "timestamp": "2026-09-10T15:17:40.472488"
+        },
+        {
+          "name": "null_rate_check",
+          "status": "warning",
+          "confidence": "direct",
+          "message": "Aucun champ critique défini dans la configuration",
+          "metrics": {},
+          "timestamp": "2026-09-10T15:17:40.472488"
+        },
+        {
+          "name": "hourly_distribution_check",
+          "status": "warning",
+          "confidence": "direct",
+          "message": "Aucune ligne à analyser (dataset vide)",
+          "metrics": {},
+          "timestamp": "2026-09-10T15:17:40.522877"
+        }
+      ]
+    }
+  ]
+}

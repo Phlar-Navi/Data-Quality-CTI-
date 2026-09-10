@@ -1,0 +1,71 @@
+id: bp_test_local
+name: "Test Local - Donnees CTI Mail"
+access: direct
+
+# Connecteur Oracle XE local
+connector:
+  type: oracle
+  params:
+    dsn: ${DWH_DSN}
+    user: ${DWH_READONLY_USER}
+    password: ${DWH_READONLY_PASSWORD}
+
+# Source des données
+data_source:
+  table: ${DWH_TABLE_NAME}
+  date_column: EVENT_DATE
+
+# Planification
+schedule:
+  check_offset_days: 1  # Contrôle des données J-1
+
+# Checks de monitoring
+checks:
+  # Check 1 : Volumétrie minimale (ajusté pour données réelles CTI)
+  - type: min_row_count_check
+    params:
+      min_lines: 10000  # ~15k lignes par jour selon fichiers
+    force_zero_on_failure: true
+  
+  # Check 2 : Comparaison baseline (7 jours pour test)
+  - type: baseline_comparison_check
+    params:
+      baseline_days: 7
+      tolerance_percent: 30.0  # Plus permissif pour test
+  
+  # Check 3 : Conformité schéma (colonnes essentielles CTI)
+  - type: schema_conformity_check
+    params:
+      required_columns:
+        - CONNID
+        - EVENT_DATE
+        - EVENT_TIME
+        - ANI
+        - DNIS
+        - TECHNICAL_RESULT
+        - SEGMENT
+    force_zero_on_failure: true
+  
+  # Check 4 : Détection doublons sur CONNID
+  - type: duplicate_key_check
+    params:
+      key_column: CONNID
+      tolerance: 0
+      ignore_blanks: true
+  
+  # Check 5 : Taux de nullité (champs critiques CTI)
+  - type: null_rate_check
+    params:
+      critical_columns:
+        - CONNID
+        - EVENT_DATE
+        - TECHNICAL_RESULT
+      max_null_rate_percent: 2.0
+  
+  # Check 6 : Distribution horaire (basé sur EVENT_HOUR calculé)
+  - type: hourly_distribution_check
+    params:
+      hour_column: EVENT_HOUR
+      tolerance_percent: 15.0  # Plus permissif pour test
+      exclude_hours: []  # Ne pas exclure d'heures pour l'instant
+      baseline_days: 7

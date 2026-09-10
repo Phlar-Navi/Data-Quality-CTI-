@@ -1,0 +1,60 @@
+# Configuration de test - Monitoring CTI
+# Environnement : Oracle XE local avec données CTI Mail
+
+logging:
+  log_level: DEBUG  # Plus verbeux pour tests
+  log_dir: ./logs_test
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+  retention_days: 7  # Moins de rétention pour tests
+
+execution:
+  mode: all  # Exécuter tous les breakpoints
+  parallel_execution: false  # Séquentiel pour faciliter le debug
+  timeout_seconds: 300
+  
+  # Pour mode single (avec --breakpoint)
+  target_breakpoints:
+    - bp_test_local
+
+notifications:
+  enabled: false  # Pas de notifications en test
+  
+  email:
+    enabled: false
+    smtp_server: ""
+    smtp_port: 587
+    from_address: ""
+    to_addresses: []
+    send_on_failure_only: true
+  
+  push:
+    enabled: false
+    ntfy_url: ""
+    topic: ""
+
+dashboard:
+  export_enabled: true
+  export_dir: ./dashboard_data_test
+  history_max_runs: 30
+
+# Seuils par défaut (plus permissifs pour test)
+default_thresholds:
+  volumetry:
+    min_rows: 5000  # Réduit pour test
+    baseline_days: 7  # Moins de jours pour baseline
+    tolerance_percent: 30.0  # Plus permissif
+  
+  quality:
+    duplicate_tolerance: 0
+    null_rate_max_percent: 5.0  # Plus permissif pour test
+  
+  distribution:
+    hourly_tolerance_percent: 15.0  # Plus permissif
+    baseline_days: 7
+
+# Base de données de métriques (optionnel)
+metrics_db:
+  enabled: false
+  type: sqlite
+  path: ./metrics_test.db
