@@ -11,6 +11,18 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 import argparse
 
+# Charger les variables d'environnement depuis .env
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent / "config" / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"[ENV] Variables d'environnement chargées depuis {env_path}")
+    else:
+        print(f"[WARN] Fichier .env introuvable : {env_path}")
+except ImportError:
+    print("[WARN] python-dotenv non installé, utilisation des variables d'environnement système")
+
 # Supprimer le warning SQLAlchemy de pandas
 warnings.filterwarnings('ignore', message='.*SQLAlchemy connectable.*')
 
@@ -19,6 +31,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from config import ConfigLoader
 from utils import BreakpointRunner, BreakpointResult, CheckResultLogger
+from utils.sqlite_logger import SQLiteLogger
+from utils.email_sender import EmailSender
 
 
 def setup_logging(config: dict) -> logging.Logger:
@@ -81,9 +95,19 @@ def load_breakpoints(config: dict, config_loader: ConfigLoader) -> List[dict]:
     
     else:  # mode == "all"
         # Charger tous les fichiers YAML du répertoire breakpoints/
+        # Exclure les fichiers qui commencent par "bp_test_" ou "bp_example_" ou contiennent "_example"
+        exclude_patterns = execution_config.get("exclude_patterns", ["bp_test_", "bp_example_", "_example"])
+        
         breakpoints = []
         for yaml_file in breakpoints_dir.glob("*.yaml"):
             bp_id = yaml_file.stem
+            
+            # Vérifier si le fichier doit être exclu
+            should_exclude = any(pattern in bp_id for pattern in exclude_patterns)
+            
+            if should_exclude:
+                continue  # Ignorer ce breakpoint
+            
             bp_config = config_loader.load_breakpoint_config(bp_id)
             if bp_config:
                 breakpoints.append(bp_config)
@@ -236,22 +260,124 @@ def send_notifications(results: List[BreakpointResult], config: dict, logger: lo
     """
     notif_config = config.get("notifications", {})
     if not notif_config.get("enabled", False):
+        logger.info("[EMAIL] Notifications désactivées dans la configuration")
         return
     
-    # Filtrer les échecs si send_on_failure_only
+    # Vérifier que le canal email est activé
+    if "email" not in notif_config.get("channels", []):
+        logger.info("[EMAIL] Canal email non activé")
+        return
+    
+    # Initialiser l'EmailSender
+    try:
+        email_sender = EmailSender(config)
+    except Exception as e:
+        logger.error(f"[EMAIL] Erreur initialisation EmailSender : {e}")
+        return
+    
+    # Convertir BreakpointResult en dict pour EmailSender
+    results_data = []
+    for result in results:
+        try:
+            result_dict = {
+                "breakpoint_id": result.breakpoint_id,
+                "breakpoint_name": result.breakpoint_name,
+                "access_type": result.access_type,
+                "target_date": result.target_date,
+                "run_timestamp": result.run_timestamp.isoformat(),
+                "status": result.status.value if hasattr(result.status, 'value') else str(result.status),
+                "score": result.score,
+                "checks": [
+                    {
+                        "name": check.check_name,
+                        "status": check.status.value,
+                        "confidence": check.confidence.value,
+                        "message": check.message,
+                        "metrics": check.metrics,
+                        "timestamp": check.timestamp.isoformat()
+                    }
+                    for check in result.checks
+                ]
+            }
+            results_data.append(result_dict)
+            logger.debug(f"[EMAIL] Converti breakpoint {result.breakpoint_id} en dict")
+        except Exception as e:
+            logger.error(f"[EMAIL] Erreur conversion breakpoint {result.breakpoint_id} : {e}", exc_info=True)
+            # Continuer avec les autres breakpoints
+            continue
+    
+    # Filtrer selon send_on_failure_only
     send_on_failure_only = notif_config.get("email", {}).get("send_on_failure_only", True)
     
-    if send_on_failure_only:
-        failed_results = [r for r in results if r.status.value in ["Critique", "Inconnu"]]
-        if not failed_results:
-            logger.info("[EMAIL] Aucune alerte critique, notification non envoyée")
-            return
-        results_to_notify = failed_results
-    else:
-        results_to_notify = results
+    # 1. Envoyer les alertes individuelles (critiques et warnings)
+    alerts_sent = 0
+    for result_dict in results_data:
+        score = result_dict.get("score", 10)
+        bp_name = result_dict.get("breakpoint_name")
+        
+        # Alerte critique (score < 5)
+        if score < 5:
+            logger.info(f"[EMAIL] Envoi alerte critique pour {bp_name} (score: {score})")
+            try:
+                if email_sender.send_alert(result_dict, email_type="alert_critical"):
+                    alerts_sent += 1
+                    logger.info(f"[EMAIL] OK - Alerte critique envoyée pour {bp_name}")
+                else:
+                    logger.warning(f"[EMAIL] WARN - Échec envoi alerte pour {bp_name}")
+            except Exception as e:
+                logger.error(f"[EMAIL] Erreur envoi alerte pour {bp_name} : {e}", exc_info=True)
+        
+        # Alerte warning (5 <= score < 8)
+        elif 5 <= score < 8:
+            logger.info(f"[EMAIL] Envoi alerte warning pour {bp_name} (score: {score})")
+            try:
+                if email_sender.send_alert(result_dict, email_type="alert_warning"):
+                    alerts_sent += 1
+                    logger.info(f"[EMAIL] OK - Alerte warning envoyée pour {bp_name}")
+                else:
+                    logger.warning(f"[EMAIL] WARN - Échec envoi alerte pour {bp_name}")
+            except Exception as e:
+                logger.error(f"[EMAIL] Erreur envoi alerte pour {bp_name} : {e}", exc_info=True)
     
-    logger.info(f"[EMAIL] Envoi de notifications pour {len(results_to_notify)} breakpoint(s)")
-    logger.warning("[WARN]  Module de notification non implémenté (TODO: ajouter email/push)")
+    if alerts_sent > 0:
+        logger.info(f"[EMAIL] {alerts_sent} alerte(s) envoyée(s)")
+    else:
+        logger.info("[EMAIL] Aucune alerte à envoyer (tous les breakpoints sont OK)")
+    
+    # 2. Envoyer le rapport quotidien (conditionnel selon score)
+    send_daily = notif_config.get("email", {}).get("send_daily_report", True)
+    
+    # Calculer le score moyen
+    scores = [r.get("score", 0) for r in results_data if r.get("score") is not None]
+    avg_score = sum(scores) / len(scores) if scores else 0
+    
+    # Déterminer si on doit envoyer le rapport
+    should_send_report = False
+    
+    if send_daily:
+        # Option 1: Envoyer seulement si score < 10 (au moins un problème)
+        min_score_threshold = notif_config.get("email", {}).get("daily_report_min_score", 10)
+        
+        if any(score < min_score_threshold for score in scores):
+            should_send_report = True
+            reason = f"au moins un breakpoint avec score < {min_score_threshold}"
+        elif not send_on_failure_only:
+            # Option 2: Si send_on_failure_only=False, envoyer quand même
+            should_send_report = True
+            reason = "send_on_failure_only=False (envoi systématique)"
+        else:
+            logger.info(f"[EMAIL] Rapport quotidien non envoyé : tous les breakpoints OK (score moyen: {avg_score:.1f}/10)")
+    
+    if should_send_report:
+        logger.info(f"[EMAIL] Envoi du rapport quotidien ({reason})")
+        try:
+            target_date = results[0].target_date if results else datetime.now().strftime("%Y-%m-%d")
+            if email_sender.send_daily_report(results_data, date=target_date):
+                logger.info("[EMAIL] OK - Rapport quotidien envoyé")
+            else:
+                logger.warning("[EMAIL] WARN - Échec envoi rapport quotidien")
+        except Exception as e:
+            logger.error(f"[EMAIL] Erreur envoi rapport quotidien : {e}", exc_info=True)
     # TODO: Implémenter l'envoi d'emails/push selon la config
 
 
@@ -341,6 +467,87 @@ def main():
     result_logger.log_batch(results, format="both")
     logger.info(f"[SAUVEGARDE] Résultats sauvegardés dans {log_dir}")
     
+    # Sauvegarde dans SQLite pour historisation
+    db_config = global_config.get("database", {})
+    if db_config.get("enabled", True):
+        db_path = db_config.get("path", "data/monitoring.db")
+        try:
+            # Préparer les données pour SQLite
+            run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_data = {
+                "run_timestamp": run_timestamp,
+                "run_date": datetime.now().isoformat(),
+                "target_date": args.date if args.date else None
+            }
+            
+            # Convertir BreakpointResult en dict pour SQLite
+            breakpoints_data = []
+            for result in results:
+                bp_dict = {
+                    "breakpoint_id": result.breakpoint_id,
+                    "breakpoint_name": result.breakpoint_name,
+                    "access_type": result.access_type,
+                    "target_date": result.target_date,
+                    "run_timestamp": result.run_timestamp.isoformat(),
+                    "status": result.status.value if hasattr(result.status, 'value') else str(result.status),
+                    "score": result.score,
+                    "checks": [
+                        {
+                            "name": check.check_name,
+                            "status": check.status.value,
+                            "confidence": check.confidence.value,
+                            "message": check.message,
+                            "metrics": check.metrics,
+                            "timestamp": check.timestamp.isoformat()
+                        }
+                        for check in result.checks
+                    ]
+                }
+                breakpoints_data.append(bp_dict)
+            
+            # Logger dans SQLite
+            with SQLiteLogger(db_path) as sqlite_logger:
+                sqlite_logger.log_full_run(run_data, breakpoints_data)
+            
+            logger.info(f"[DB] Données sauvegardées dans SQLite : {db_path}")
+        except Exception as e:
+            logger.error(f"[DB] Erreur sauvegarde SQLite : {e}")
+    
+    # Export des outliers en CSV (si configuré)
+    outliers_config = global_config.get("outliers", {})
+    if outliers_config.get("export_csv", False):
+        try:
+            from utils.outlier_exporter import OutlierExporter
+            
+            output_dir = outliers_config.get("output_dir", "./outliers")
+            exporter = OutlierExporter(output_dir)
+            
+            # Préparer la date cible pour l'export
+            target_date_for_export = args.date if args.date else datetime.now().strftime("%Y-%m-%d")
+            
+            # Exporter tous les outliers détectés
+            exported_files = exporter.export_all_outliers(
+                run_id=run_timestamp,
+                target_date=target_date_for_export,
+                results=[{
+                    "breakpoint_id": r.breakpoint_id,
+                    "checks": [
+                        {
+                            "name": check.check_name,
+                            "details": check.metrics if hasattr(check, 'metrics') else {}
+                        }
+                        for check in r.checks
+                    ]
+                } for r in results]
+            )
+            
+            # Nettoyage des anciens fichiers CSV
+            retention_days = outliers_config.get("retention_days", 90)
+            exporter.cleanup_old_files(retention_days)
+            
+        except Exception as e:
+            logger.error(f"[EXPORT] Erreur export outliers CSV : {e}")
+    
     # Nettoyage des anciens logs
     retention_days = log_config.get("retention_days", 30)
     result_logger.cleanup_old_logs(retention_days=retention_days)
@@ -354,7 +561,7 @@ def main():
     logger.info("="*60)
     
     # Code de sortie (0 si tout est OK, 1 si au moins un breakpoint est critique)
-    critical_count = sum(1 for r in results if r.status.value == "Critique")
+    critical_count = sum(1 for r in results if (hasattr(r.status, 'value') and r.status.value == "Critique") or (isinstance(r.status, str) and r.status == "Critique"))
     sys.exit(1 if critical_count > 0 else 0)
 
 

@@ -6,6 +6,7 @@ from .base import BaseCheck
 from .volumetry import MinRowCountCheck, BaselineComparisonCheck
 from .quality import SchemaConformityCheck, DuplicateKeyCheck, NullRateCheck
 from .distribution import HourlyDistributionCheck
+from .outlier import OutlierDetectionCheck, DataIntegrityCheck
 
 __all__ = [
     "BaseCheck",
@@ -14,5 +15,7 @@ __all__ = [
     "SchemaConformityCheck",
     "DuplicateKeyCheck",
     "NullRateCheck",
-    "HourlyDistributionCheck"
+    "HourlyDistributionCheck",
+    "OutlierDetectionCheck",
+    "DataIntegrityCheck"
 ]

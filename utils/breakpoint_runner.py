@@ -14,7 +14,9 @@ from checks import (
     SchemaConformityCheck,
     DuplicateKeyCheck,
     NullRateCheck,
-    HourlyDistributionCheck
+    HourlyDistributionCheck,
+    OutlierDetectionCheck,
+    DataIntegrityCheck
 )
 
 
@@ -25,7 +27,9 @@ CHECK_REGISTRY = {
     "schema_conformity_check": SchemaConformityCheck,
     "duplicate_key_check": DuplicateKeyCheck,
     "null_rate_check": NullRateCheck,
-    "hourly_distribution_check": HourlyDistributionCheck
+    "hourly_distribution_check": HourlyDistributionCheck,
+    "outlier_detection_check": OutlierDetectionCheck,
+    "data_integrity_check": DataIntegrityCheck
 }
 
 # Registre des connecteurs disponibles

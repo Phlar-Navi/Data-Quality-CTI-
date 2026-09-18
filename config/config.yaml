@@ -27,6 +27,14 @@ execution:
   target_breakpoints:
     - bp9_dwh_oracle
   
+  # Patterns à exclure en mode "all" (fichiers de test/exemple)
+  # Les breakpoints dont l'ID contient un de ces patterns seront ignorés
+  exclude_patterns:
+    - bp_test_
+    - bp_example_
+    - _example
+    - _mock
+  
   # Parallélisation (nombre de breakpoints exécutés en parallèle)
   # 1 = séquentiel, >1 = parallèle (à utiliser avec prudence si connexions limitées)
   max_workers: 1
@@ -37,24 +45,42 @@ execution:
 # ====== Notifications ======
 notifications:
   # Activer/désactiver les notifications
-  enabled: false
+  enabled: true
   
   # Types de notifications à envoyer
   # Valeurs possibles : email, push, webhook
   channels:
     - email
+    - push
   
   # Configuration email (si activé)
   email:
     smtp_server: smtp.gmail.com
-    smtp_port: 465
+    smtp_port: 587
     sender: smrcorp007@gmail.com # ${EMAIL_SENDER}
     sender_password: rrxjhbckbdtzfqjv # ${EMAIL_SENDER_PASSWORD}
     recipients:
-      - monitoring@example.com
+      alerts:
+        - ralphseffi@gmail.com
+      reports:
+        - ralphseffi@gmail.com
+      all:
+        - ralphseffi@gmail.com
     
     # Envoyer seulement en cas d'échec ou toujours
-    send_on_failure_only: true
+    send_on_failure_only: true  # true = seulement si problème détecté
+    
+    # Rapport quotidien : envoi conditionnel
+    send_daily_report: true
+    daily_report_min_score: 10  # Envoyer si au moins un breakpoint a un score < 10
+    # Valeurs possibles :
+    # - 10 : Envoyer dès qu'il y a le moindre problème (recommandé)
+    # - 8  : Envoyer seulement si score < 8 (warnings ou critiques)
+    # - 5  : Envoyer seulement si score < 5 (critiques seulement)
+    
+    # Throttling (éviter spam)
+    min_interval_between_alerts: 300  # 5 minutes entre alertes du même breakpoint
+    max_emails_per_hour: 10           # Maximum 10 emails/heure
   
   # Configuration push/ntfy (si activé)
   push:
@@ -93,6 +119,32 @@ default_thresholds:
   score_normal: 10
   score_degrade_min: 6
   score_critique_max: 5
+
+# ====== Base de données SQLite (historisation) ======
+database:
+  # Activer la sauvegarde dans SQLite
+  enabled: true
+  
+  # Chemin vers la base de données
+  path: ./data/monitoring.db
+  
+  # Rétention des données (jours)
+  retention_days: 365
+  
+  # Options SQLite
+  auto_vacuum: true
+  journal_mode: WAL
+
+# ====== Export des outliers (CSV granulaire) ======
+outliers:
+  # Activer l'export CSV des outliers détectés
+  export_csv: true
+  
+  # Répertoire de sortie
+  output_dir: ./outliers
+  
+  # Rétention des fichiers CSV (jours)
+  retention_days: 90
 
 # ====== Base de données de métriques (optionnel, pour historisation avancée) ======
 metrics_db:

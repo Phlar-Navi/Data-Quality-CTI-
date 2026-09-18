@@ -1,40 +1,52 @@
-# Credentials et configuration sensible
+# ==========================================
+# .gitignore - Monitoring CTI
+# ==========================================
+Exclude/
+Handover/
+sample/
+
+# Credentials (SENSIBLE)
 .env
-*.env
 config/.env
 .db_env
 
-# Logs et résultats
+# Données générées
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
 logs/
-*.log
-
-# Données exportées pour dashboard
 dashboard_data/
+outliers/
 
-# Python
+# Documentation (à envoyer séparément)
+# Documentation/
+
+# Fichiers de test
+test_utils/
+logs_test/
+dashboard_data_test/
+*_test.py
+*_test.yaml
+
+# Markdown temporaires (sauf README et CHANGELOG)
+#*.md
+!README.md
+!CHANGELOG.md
+!GUIDE_BREAKPOINTS.md
+!DOCUMENTATION_COMPLETE.md
+
+# Fichiers système
+*.PNG
+*.rar
+*.zip
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+*.pyc
+*.pyo
+.DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
@@ -43,11 +55,7 @@ wheels/
 *.swo
 *~
 
-# OS
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# Base de données de métriques (si activée)
-*.db
-*.sqlite
+# Python
+*.egg-info/
+dist/
+build/

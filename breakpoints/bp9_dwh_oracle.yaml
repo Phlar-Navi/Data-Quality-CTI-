@@ -41,7 +41,7 @@ checks:
   # 2. Vérifier la volumétrie minimale (échec structurel si 0 ligne)
   - type: min_row_count_check
     params:
-      min_lines: 10000  # PLACEHOLDER - à valider avec le métier
+      min_lines: 10000  # PLACEHOLDER
     force_zero_on_failure: true  # Force le score à 0 si 0 ligne détectée
 
   # 3. Comparer à la baseline historique
@@ -74,6 +74,32 @@ checks:
       baseline_days: 14       # PLACEHOLDER
       excluded_hours: []      # Tranches à exclure (ex: [0,1,2,3] pour nuit) - PLACEHOLDER
 
+  # 7. Détection d'outliers sur colonnes spécifiques
+  # (Config basée sur analyse baseline 2026-05-01 → 2026-06-30)
+  # TODO: REMPLACER PAR LA CONFIG GÉNÉRÉE PAR analyze_baseline.py
+  - type: outlier_detection_check
+    params:
+      fail_threshold_percent: 5.0    # Échec si >= 5% d'outliers
+      warn_threshold_percent: 2.0    # Warning si >= 2% d'outliers
+      
+      columns:
+        # EXEMPLE - À REMPLACER après analyse baseline réelle
+        - name: DUREE_CONVERSATION
+          type: numeric
+          method: iqr
+          iqr_multiplier: 1.5
+          key_column: CONNID  # Colonne clé pour identifier les lignes dans le CSV
+          # Attendu: ~1.5% outliers (selon analyse)
+        
+        - name: DUREE_FILE
+          type: numeric
+          method: iqr
+          iqr_multiplier: 2.0
+          key_column: CONNID  # Colonne clé pour identifier les lignes dans le CSV
+          # Attendu: ~12% outliers (distribution asymétrique)
+        
+        # Ajouter autres colonnes après analyse baseline...
+
 # Seuils de score pour déterminer le statut macro
 # (codé en dur dans BreakpointResult.determine_status, mais documenté ici)
 score_thresholds:
@@ -85,5 +111,5 @@ score_thresholds:
 metadata:
   description: "Surveillance directe du Datawarehouse Oracle (lignes CTI)"
   priority: high
-  contact: "Équipe DWH"  # PLACEHOLDER
+  contact: "Équipe DWH"
   documentation_url: "Documentation/Plan_de_Monitoring_DWH.md"

@@ -139,12 +139,15 @@ class CheckResultLogger:
         # Résumé global
         status_counts = {}
         total_score = 0
+        valid_scores = 0
         for result in results:
             status = result.status.value if hasattr(result.status, 'value') else str(result.status)
             status_counts[status] = status_counts.get(status, 0) + 1
-            total_score += result.score
+            if result.score is not None:
+                total_score += result.score
+                valid_scores += 1
         
-        avg_score = total_score / len(results) if results else 0
+        avg_score = total_score / valid_scores if valid_scores > 0 else 0
         
         lines.append("RÉSUMÉ GLOBAL")
         lines.append("-" * 80)
